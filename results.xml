@@ -1,1 +1,62 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="1" tests="9" time="20.295" timestamp="2021-05-04T23:38:37.414670" hostname="kamal.lan"><testcase classname="test_password_hashing" name="test_shutdown" time="0.000"><skipped type="pytest.skip" message="unconditional skip">/Users/rush/PycharmProjects/pythonProject01/Password-hashing/pytest-automation/test_password_hashing.py:81: unconditional skip</skipped></testcase><testcase classname="test_password_hashing" name="test_service_exists" time="0.012" /><testcase classname="test_password_hashing" name="test_post_response_contains_job_id" time="5.034" /><testcase classname="test_password_hashing" name="test_get_response_contains_base64" time="5.010" /><testcase classname="test_password_hashing" name="test_password_encryption" time="5.008" /><testcase classname="test_password_hashing" name="test_post_response_wait_time" time="5.010" /><testcase classname="test_password_hashing" name="test_get_request_to_stats" time="0.007" /><testcase classname="test_password_hashing" name="test_get_response_from_stats" time="0.003" /><testcase classname="test_password_hashing" name="test_graceful_shutdown" time="0.054" /></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="1" tests="9" time="30.879" timestamp="2021-05-05T08:34:06.125452" hostname="kamal.lan"><testcase classname="test_password_hashing" name="test_shutdown" time="0.000"><skipped type="pytest.skip" message="unconditional skip">/Users/rush/PycharmProjects/pythonProject01/Password-hashing/pytest-automation/test_password_hashing.py:81: unconditional skip</skipped></testcase><testcase classname="test_password_hashing" name="test_service_exists" time="0.013" /><testcase classname="test_password_hashing" name="test_post_response_contains_job_id" time="5.019" /><testcase classname="test_password_hashing" name="test_get_response_contains_base64" time="5.011" /><testcase classname="test_password_hashing" name="test_password_encryption" time="5.011" /><testcase classname="test_password_hashing" name="test_post_response_wait_time" time="5.004" /><testcase classname="test_password_hashing" name="test_get_request_to_stats" time="0.011" /><testcase classname="test_password_hashing" name="test_get_response_from_stats" time="0.003" /><testcase classname="test_password_hashing" name="test_graceful_shutdown" time="10.531"><failure message="AssertionError: inflight operation didn't happen as expected.&#10;assert False">cli_numRequests = '200', cli_password = 'hurraymydear'
+
+    def test_graceful_shutdown(cli_numRequests, cli_password):
+      LOGGER.info('Test for graceful shutdown of Service.')
+      LOGGER.info('Number of requests received from user to process are %s' % cli_numRequests)
+      threads = []
+      results = []
+      nRequests = int(cli_numRequests)
+      for i in range(nRequests):
+        th = threading.Thread(target=create_post_requests, args=(i, cli_password,
+                                                                 results))
+        threads.append(th)
+        th.start()
+    
+      shutdown_status_code, shutdown_resp_msg = shutdown()
+    
+      for i in range(nRequests, 2 * nRequests):
+        th = threading.Thread(target=create_post_requests, args=(i, cli_password,
+                                                                 results))
+        threads.append(th)
+        th.start()
+    
+      for index, thread in enumerate(threads):
+        thread.join()
+      passed_successfully = True
+    
+      before_shutdown_failed_count = 0
+      after_shutdown_failed_count = 0
+    
+      for pwd, status_code, job_id in results:
+        # Extracting request number from password. Eg password = "3_angryman" request_id
+        # = 3
+        match = re.match(r'(\d+)', pwd)
+        request_id = match.group(1)
+        LOGGER.info("request_id=%s" % request_id)
+    
+        if int(request_id) &lt; nRequests:
+            if status_code != 200:
+              passed_successfully=False
+              before_shutdown_failed_count += 1
+              LOGGER.error("Should receive 200 before shutdown. Received %s for job_id = %s,"
+                           " cli_password = %s" % (status_code, job_id, pwd))
+        else:
+            assert nRequests &lt;= int(request_id)
+            assert int(request_id) &lt; (2*nRequests)
+            if status_code == 200:
+              passed_successfully = False
+              after_shutdown_failed_count += 1
+              LOGGER.error("Should not receive 200 after shutdown. Received %s "\
+                                       "for job_id = %s, cli_password = %s" % \
+                                       (status_code, job_id, pwd))
+    
+      LOGGER.error("%s out of %s requests sent before shutdown failed." % (
+        before_shutdown_failed_count, nRequests))
+      LOGGER.error("%s out of %s requests sent after shutdown failed." % (
+        after_shutdown_failed_count, (2*nRequests - nRequests)))
+    
+&gt;     assert passed_successfully, "inflight operation didn't happen as expected."
+E     AssertionError: inflight operation didn't happen as expected.
+E     assert False
+
+test_password_hashing.py:253: AssertionError</failure></testcase></testsuite></testsuites>
